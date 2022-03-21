@@ -1,0 +1,22 @@
+#Debian
+echo net.ipv4.ip_forward = 1 >/etc/sysctl.conf
+sysctl -p
+apt-cdrom add
+apt install tcpdump net-tools curl vim lynx dns-utils nds-common cifs-utils -y
+echo ISP 10.10.10.10 >> /etc/hosts
+apt install openssh-server -y
+sed -i "s%#PermitRootLogin%PermitRootLogin%g" /etc/ssh/sshd_config
+sed -i "s%prohibit-password%yes%g" /etc/ssh/sshd_config
+systemctl restart sshd
+reboot
+
+#CentOS
+echo net.ipv4.ip_forward = 1 >/etc/sysctl.conf
+sysctl -p
+mkdir /media/cdrom
+mount /dev/sr0 /media/cdrom
+yum install tcpdump net-tools curl vim lynx bind-utils nfs-utils cifs-utils openssh-server -y
+echo ISP 10.10.10.10 >> /etc/hosts
+sed -i "s%enforcing%disable%g" /etc/selinux/
+systemctl disable --now firewalld
+reboot
