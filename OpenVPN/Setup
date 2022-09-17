@@ -1,1 +1,96 @@
-1
+#Установка OpenVPN, easy-rsa и создание сертификата
+yum install epel-release // Установка репозитория epel
+yum install openvpn easy-rsa
+cd /usr/share/easy-rsa/3 // Число зависит от версии
+
+Чтобы упростить и ускорить процесс создания ключей, создаем следующий файл:
+vim vars
+Пишем следующее:
+export KEY_COUNTRY="RU"
+export KEY_PROVINCE="Kazan"
+export KEY_CITY="Kazan"
+export KEY_ORG="RosTech"
+export KEY_EMAIL=""
+export KEY_CN="RosTech"
+export KEY_OU="RosTech"
+export KEY_NAME="RosTech-openvpn"
+export KEY_ALTNAMES="RosTech-openvpn-server"
+
+./easyrsa init-pki // Инициализируем PKI
+
+На выходе получаем:
+Note: using Easy-RSA configuration from: /usr/share/easy-rsa/3/vars
+
+init-pki complete; you may now create a CA or requests.
+Your newly created PKI dir is: /usr/share/easy-rsa/3/pki
+А в текущем каталоге появится папка pki
+
+Генерируем корневой сертификат:
+./easyrsa build-ca
+Обязательно задаем пароль и далее нажимаем до конца enter
+
+Генерируем ключ Диффи-Хеллмана
+./easyrsa gen-dh
+
+Создаем файл запроса для сертификата
+./easyrsa gen-req vpn-server nopass
+И кликаем enter
+
+На основе файла - делаем серт
+./easyrsa sign-req server vpn-server
+Пишем на confirm request details - yes
+И прописываем пароль, который мы вписывали в корневой сертификат
+
+Для создания ta ключа используем команду
+openvpn --genkey --secret pki/ta.key
+
+Сертификаты сервера готовы и находятся в каталоге pki. 
+
+Создаем каталог в /etc/openvpn, в котором будем хранить сертификаты:
+mkdir -p /etc/openvpn/server/keys
+
+Переходим в каталог pki:
+
+cd pki
+
+Копируем в него необходимые сертификаты:
+
+cp ca.crt issued/vpn-server.crt private/vpn-server.key dh.pem ta.key /etc/openvpn/server/keys/
+
+#Настройка и запуск сервера OpenVPN
+
+Создаем конфигурационный файл для сервера openvpn:
+vi /etc/openvpn/server/server.conf
+И вставляем в него следующее:
+local [Внешний IP адрес]
+port 443
+proto udp
+dev tun
+ca keys/ca.crt
+cert keys/vpn-server.crt
+key keys/vpn-server.key
+dh keys/dh.pem
+tls-auth keys/ta.key 0
+server 172.16.10.0 255.255.255.0
+ifconfig-pool-persist ipp.txt
+keepalive 10 120
+max-clients 32
+persist-key
+persist-tun
+status /var/log/openvpn/openvpn-status.log
+log-append /var/log/openvpn/openvpn.log
+verb 0
+mute 20
+daemon
+mode server
+tls-server
+comp-lzo no
+* port: сетевой порт (443 позволит избежать проблем при использовании Интернета в общественных местах, 
+но может быть уже занят в вашей системе — посмотреть список используемых портов можно командой ss -tunlp. 
+Если порт занят, используйте любой из свободных, например 1194).
+
+Создаем каталог для логов сервера:
+mkdir /var/log/openvpn
+
+Разрешаем автоматический старт сервиса vpn и запускаем его:
+systemctl enable openvpn-server@server --now
