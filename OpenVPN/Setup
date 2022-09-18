@@ -94,3 +94,77 @@ mkdir /var/log/openvpn
 
 Разрешаем автоматический старт сервиса vpn и запускаем его:
 systemctl enable openvpn-server@server --now
+Создаем каталог для логов сервера:
+
+#Настройка OpenVPN-клиента
+#Создание сертификатов
+На сервере генерируем сертификаты для клиента. Для этого снова переходим в каталог easy-rsa:
+cd /usr/share/easy-rsa/3
+
+Запускаем еще раз vars:
+./vars
+
+Создаем клиентский сертификат:
+./easyrsa gen-req client1 nopass
+./easyrsa sign-req client client1
+* в данном примере будет создан сертификат для client1.
+Мы должны увидеть запрос на подтверждение намерения выпустить сертификат — вводим yes:
+  Confirm request details: yes
+После появится запрос на ввод пароля для ключа ca:
+Enter pass phrase for /usr/share/easy-rsa/3/pki/private/ca.key
+Вводим его.
+
+На сервере скопируем ключи во временную директорию, выполнив последовательно 3 команды:
+mkdir /tmp/keys
+cp pki/issued/client1.crt pki/private/client1.key pki/dh.pem pki/ca.crt pki/ta.key /tmp/keys
+chmod -R a+r /tmp/keys
+* сертификаты скопированы в каталог /tmp для удобства переноса их на клиентский компьютер.
+Сертификаты готовы для скачивания.
+
+#Настройка сертификата на linux
+yum install epel-release
+yum install openvpn
+mkdir /etc/openvpn/client
+cd /etc/openvpn/client
+
+Копируем в каталог файлы ca.crt, client1.crt, client1.key, dh.pem, ta.key из каталога /tmp/keys на сервере, 
+например, при помощи утилиты scp:
+scp root@[IP vpn сервера]:/tmp/keys/* .
+
+Для закрытых ключей разрешаем доступ только для владельца:
+chmod 600 client1.key ta.key
+
+После переноса файлов, не забываем удалить ключи из временного каталога на сервере:
+rm -R /tmp/keys
+
+Создаем конфигурационный файл:
+vim /etc/openvpn/client/client.conf
+Пишем:
+client
+resolv-retry infinite
+nobind
+remote [IP vpn сервера] [port, который мы указывали в конфигурации сервера vpn]
+proto udp
+dev tun
+comp-lzo no
+ca ca.crt
+cert client1.crt
+key client1.key
+dh dh.pem
+tls-client
+tls-auth ta.key 1
+float
+keepalive 10 120
+persist-key
+persist-tun
+verb 0
+
+Разово запустим клиента:
+cd /etc/openvpn/client
+openvpn --config /etc/openvpn/client/client.conf
+
+Прерываем выполнение подключения комбинацией Ctrl + C и запустим клиента в качестве службы:
+systemctl enable openvpn-client@client --now
+
+Проверить, что соединение состоялось можно пинганув сервер по VPN-адресу:
+ping 172.16.10.1
