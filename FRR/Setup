@@ -5,3 +5,16 @@ sudo systemctl enable --now snapd.socket
 sudo ln -s /var/lib/snapd/snap /snap
 systemctl enable snapd.seeded.service --now
 sudo snap install frr
+
+vim /etc/frr/daemons
+Меняем значение ospfd на yes
+
+systemctl restart frr
+
+vtysh
+conf t
+router ospf
+ospf router-id 3.3.3.3
+network [Подсеть локальной сети организации] area 0
+network [Подсеть VPN сервера] area 0
+do wr
