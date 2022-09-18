@@ -1,0 +1,7 @@
+#Устанавливаем FRR
+sudo yum install epel-release
+sudo yum install snapd
+sudo systemctl enable --now snapd.socket
+sudo ln -s /var/lib/snapd/snap /snap
+systemctl enable snapd.seeded.service --now
+sudo snap install frr
