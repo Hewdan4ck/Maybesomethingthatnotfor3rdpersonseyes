@@ -1,2 +1,78 @@
+#Настройка DNS глав сервера
 yum -y install bind bind-utils 
 getenforce
+vim /etc/named.conf
+Дописываем
+options {
+         listen-on port 53 { any; };  
+         listen-on-v6 port 53 { any; }; 
+         allow-query     { any; };           
+         allow-transfer  {<IP подчиненного сервера>; };
+         recursion yes;
+}
+zone "DSkills.kzn" IN { 
+  type master; 
+  file "DSkills.kzn"; 
+  allow-update { none; }; 
+};  
+zone "154.168.192.in-addr.arpa" IN 
+{ 
+  type master; 
+  file "RDSkills.kzn"; 
+  allow-update { none; }; 
+};
+
+vim /var/named/DSkills.kzn
+$TTL 86400
+ @   IN  SOA     DC.DSkills.kzn. (
+ # You can use any numerical values for serial number but it is recommended to use [YYYYMMDDnn]
+         2019112201  ;Serial
+         3600        ;Refresh
+         1800        ;Retry
+         604800      ;Expire
+         86400       ;Minimum TTL
+)
+         // Set your Name Servers here
+         IN  NS      DC.DSkills.kzn.
+         IN  NS      RDC.DSkills.kzn.
+         
+         // define IP on main domen
+         IN  A       <IP на DSkills.kzn>
+
+// Set each IP address of a hostname. Sample A records.
+DC    IN  A       <IP глав. сервера> 
+RDC   IN  A       <IP подчин. сервера>
+PC    IN  A       <IP клиента>
+
+vim /var/named/RDSkills.kzn
+$TTL 86400
+ @   IN  SOA     DC.DSkills.kzn. (
+         2019112201  ;Serial
+         3600        ;Refresh
+         1800        ;Retry
+         604800      ;Expire
+         86400       ;Minimum TTL
+ )
+         # Set Name Server
+         IN  NS      DC.infoit.com.ua.
+## Set each IP address of a hostname. Sample PTR records.
+<Конечный номер IP глав. сервера>     IN  PTR     DC.DSkills.kzn.
+<Конечный номер IP подч. сервера>     IN  PTR     RDC.DSkills.kzn.
+<Конечный номер IP PC>                IN  PTR     PC.DSkills.kzn.
+
+chown -R root:named /var/named/DSkills.kzn
+chmod 0640 /var/named/DSkills.kzn
+chown -R root:named /var/named/RDSkills.kzn
+chmod 0640 /var/named/RDSkills.kzn
+
+vim /etc/resolv.conf  
+пишем
+nameserver <IP адрес главного сервера>
+
+systemctl disable firewalld --now
+
+named-checkconf
+systemctl start named
+systemctl enable named 
+
+#Настройка DNS подчиненного сервера
