@@ -74,5 +74,3 @@ systemctl disable firewalld --now
 named-checkconf
 systemctl start named
 systemctl enable named 
-
-#Настройка DNS подчиненного сервера
